@@ -1,0 +1,42 @@
+plugins {
+    id 'java'
+}
+
+allprojects {
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+    
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+
+    dependencies {
+        implementation 'com.zeroc:ice:3.7.10'
+    }
+
+    // Tarea para copiar las librerías al directorio build/libs
+    // Usamos un closure {} para diferir la resolución de configuraciones
+    tasks.register('copyLibs', Copy) {
+        from { configurations.runtimeClasspath }
+        into "${buildDir}/libs"
+    }
+
+    // Configuración del manifiesto
+    jar {
+        // Usamos doFirst para que la resolución de runtimeClasspath ocurra solo al ejecutar la tarea
+        doFirst {
+            manifest.attributes(
+                'Main-Class': 'SITM.Main', 
+                'Class-Path': configurations.runtimeClasspath.collect { it.name }.join(' ')
+            )
+        }
+    }
+
+}

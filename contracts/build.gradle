@@ -1,0 +1,9 @@
+plugins {
+    id 'com.zeroc.gradle.ice-builder.slice' version '1.5.2'
+}
+
+slice {
+    java {
+        files = fileTree(dir: 'src/main/slice', include: '**/*.ice')
+    }
+}
