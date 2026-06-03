@@ -34,7 +34,10 @@ import javafx.stage.Stage;
  */
 public class Main extends Application {
 
-    static final String HOST = System.getProperty("sitm.host", "10.147.19.23");
+    // IP del Event Processor (N3). Para correr localmente: -Dsitm.host=localhost
+    static final String HOST    = System.getProperty("sitm.host",    "10.147.20.66");
+    // IP del Data Center (N5). Para correr localmente: -Dsitm.dc.host=localhost
+    static final String DC_HOST = System.getProperty("sitm.dc.host", "10.147.20.63");
 
     private Communicator communicator;
     private WebEngine webEngine;
@@ -107,7 +110,7 @@ public class Main extends Application {
                         intento, maxIntentos);
 
                 ObjectPrx base = communicator.stringToProxy(
-                        "ReportProvider:default -h " + HOST + " -p 10001");
+                        "ReportProvider:default -h " + DC_HOST + " -p 10001");
                 ReportProviderPrx reportProvider = ReportProviderPrx.checkedCast(base);
 
                 if (reportProvider == null) {

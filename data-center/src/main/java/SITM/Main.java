@@ -50,10 +50,10 @@ import java.util.Set;
 public class Main {
 
     // IP del servidor del piloto. Para correr localmente: -Dsitm.host=localhost
-    static final String HOST               = System.getProperty("sitm.host", "10.147.19.23");
+    static final String HOST               = System.getProperty("sitm.host", "10.147.20.66");
     // Directorio de datos. Para correr localmente: -Dsitm.data=data
     static final String DIR_DATOS          = System.getProperty("sitm.data", "/opt/sitm-mio");
-    static final String ARCHIVO_DATAGRAMAS = DIR_DATOS + "/datagrams-MiniPilot.csv";
+    static final String ARCHIVO_DATAGRAMAS = DIR_DATOS + "/datagrams4Pilot.csv";
     static final String ARCHIVO_RUTAS      = DIR_DATOS + "/lines-241-ActiveGT.csv";
 
     public static void main(String[] args) throws Exception {
@@ -103,7 +103,7 @@ public class Main {
                     ARCHIVO_DATAGRAMAS, rutasActivas, nombreRutas);
 
             ObjectAdapter adapter = communicator.createObjectAdapterWithEndpoints(
-                    "DataCenterAdapter", "default -h " + HOST + " -p 10001");
+                    "DataCenterAdapter", "default -h * -p 10001");
             adapter.add(archiveServant, Util.stringToIdentity("ArchiveService"));
             adapter.add(reportServant,  Util.stringToIdentity("ReportProvider"));
             adapter.activate();
@@ -128,7 +128,7 @@ public class Main {
             // Cada Worker escucha en su propio puerto para que el Master
             // pueda distribuir trabajo entre múltiples instancias independientes.
             ObjectAdapter adapter = communicator.createObjectAdapterWithEndpoints(
-                    "WorkerAdapter", "default -h " + HOST + " -p " + puerto);
+                    "WorkerAdapter", "default -h * -p " + puerto);
             adapter.add(workerServant, Util.stringToIdentity("SpeedWorker"));
             adapter.activate();
 

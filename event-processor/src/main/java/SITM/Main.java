@@ -22,9 +22,10 @@ import com.zeroc.Ice.Util;
  */
 public class Main {
 
-    // IP del servidor del piloto SITM-MIO (10.147.19.23).
-    // Para correr localmente: -Dsitm.host=localhost
-    static final String HOST = System.getProperty("sitm.host", "10.147.19.23");
+    // IP del Event Processor (este nodo). Para correr localmente: -Dsitm.host=localhost
+    static final String HOST    = System.getProperty("sitm.host",    "10.147.20.66");
+    // IP del Data Center (N5). Para correr localmente: -Dsitm.dc.host=localhost
+    static final String DC_HOST = System.getProperty("sitm.dc.host", "10.147.20.63");
 
     public static void main(String[] args) {
         try (Communicator communicator = Util.initialize(args)) {
@@ -34,7 +35,7 @@ public class Main {
             ArchiveServicePrx archiveService = null;
             try {
                 ObjectPrx base = communicator.stringToProxy(
-                        "ArchiveService:default -h " + HOST + " -p 10001");
+                        "ArchiveService:default -h " + DC_HOST + " -p 10001");
                 archiveService = ArchiveServicePrx.checkedCast(base);
             } catch (Exception e) {
                 System.out.println("Data Center no disponible — operando en modo solo tiempo real.");
@@ -45,7 +46,7 @@ public class Main {
             DatagramReceiverI servant = new DatagramReceiverI(archiveService);
 
             ObjectAdapter adapter = communicator.createObjectAdapterWithEndpoints(
-                    "DatagramReceiverAdapter", "default -h " + HOST + " -p 10000");
+                    "DatagramReceiverAdapter", "default -h * -p 10000");
             adapter.add(servant, Util.stringToIdentity("DatagramReceiver"));
             adapter.activate();
 

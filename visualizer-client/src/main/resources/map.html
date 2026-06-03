@@ -267,6 +267,24 @@
         var velocidadRutas = {};
         var contadores     = { NORMAL: 0, ALERTADO: 0, CRITICO: 0 };
         var estadoBuses    = {};
+        var historiales    = {};   // busId → array de [lat, lng]
+        var polylines      = {};   // busId → L.polyline
+        var MAX_TRAIL      = 20;   // posiciones a recordar por bus
+        var MAX_SALTO_KM   = 2.0;  // si un bus salta más de 2 km entre dos posiciones
+                                   // consecutivas se asume un gap en los datos y el trail
+                                   // se reinicia para evitar líneas que cruzan el mapa
+
+        // Haversine: distancia en km entre dos coordenadas.
+        // Necesario para detectar saltos imposibles en los datos del CSV.
+        function distanciaKm(lat1, lng1, lat2, lng2) {
+            var R    = 6371;
+            var dLat = (lat2 - lat1) * Math.PI / 180;
+            var dLng = (lng2 - lng1) * Math.PI / 180;
+            var a    = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                       Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
 
         // Colores alineados con la identidad visual del MIO
         var COLORES = {
@@ -291,6 +309,7 @@
         }
 
         function updateBus(busId, lat, lng, lineId, tiempo, severidad) {
+            // Descartar coordenadas fuera de rango — pueden llegar del CSV con valores -1
             if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
 
             var color = COLORES[severidad] || '#888';
@@ -307,6 +326,7 @@
                 '<b>Vel. prom.:</b> ' + velInfo + '<br>' +
                 '<b>Hora:</b> '       + tiempo;
 
+            // ── Marcador: actualizar posición si ya existe, crear si es nuevo ──
             if (marcadores[busId]) {
                 marcadores[busId].setLatLng([lat, lng]);
                 marcadores[busId].setIcon(icono);
@@ -317,6 +337,50 @@
                 marcadores[busId] = m;
             }
 
+            // ── Trail: agregar la nueva posición al historial del bus ──
+            // Se conservan las últimas MAX_TRAIL posiciones para no saturar el mapa
+            // con recorridos demasiado largos que dificulten la lectura operativa.
+            if (!historiales[busId]) historiales[busId] = [];
+
+            // Si el bus saltó más de MAX_SALTO_KM respecto a su última posición conocida,
+            // se descarta el historial anterior: es un gap en los datos del CSV (parada
+            // prolongada, reinicio de ruta) y no debe conectarse con una línea recta.
+            var hist = historiales[busId];
+            if (hist.length > 0) {
+                var ultima = hist[hist.length - 1];
+                if (distanciaKm(ultima[0], ultima[1], lat, lng) > MAX_SALTO_KM) {
+                    historiales[busId] = [];
+                    if (polylines[busId]) {
+                        mapa.removeLayer(polylines[busId]);
+                        delete polylines[busId];
+                    }
+                }
+            }
+
+            historiales[busId].push([lat, lng]);
+            if (historiales[busId].length > MAX_TRAIL) {
+                // Descarta la posición más antigua (FIFO) para mantener la ventana deslizante
+                historiales[busId].shift();
+            }
+
+            // Dibujar el trail solo cuando hay al menos dos posiciones registradas
+            if (historiales[busId].length > 1) {
+                if (polylines[busId]) {
+                    // Actualizar la polilínea existente con el nuevo punto y color de severidad
+                    polylines[busId].setLatLngs(historiales[busId]);
+                    polylines[busId].setStyle({ color: color });
+                } else {
+                    // Primera vez que este bus tiene suficiente historial: crear la polilínea
+                    polylines[busId] = L.polyline(historiales[busId], {
+                        color   : color,
+                        weight  : 2,      // línea delgada para no tapar otros buses
+                        opacity : 0.55    // semitransparente para distinguirla del ícono
+                    }).addTo(mapa);
+                }
+            }
+
+            // ── Contadores del panel lateral ──
+            // Si el bus cambió de severidad, restar del bucket anterior y sumar al nuevo
             var anterior = estadoBuses[busId];
             if (anterior && anterior !== severidad) {
                 contadores[anterior] = Math.max(0, contadores[anterior] - 1);

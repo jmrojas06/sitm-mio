@@ -1,9 +1,10 @@
 // Tier 2 — Data Center: procesador de tiempo real (N2 + N3)
+apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'application'
+
 dependencies {
     implementation project(':contracts')
 }
-
-apply plugin: 'application'
 
 application {
     mainClass = 'SITM.Main'
@@ -11,5 +12,13 @@ application {
 
 run {
     workingDir = rootProject.projectDir
-    systemProperty 'sitm.host', project.findProperty('sitm.host') ?: 'localhost'
+    systemProperty 'sitm.host',    project.findProperty('sitm.host')    ?: 'localhost'
+    systemProperty 'sitm.dc.host', project.findProperty('sitm.dc.host') ?: 'localhost'
+}
+
+shadowJar {
+    archiveBaseName = 'sitm-event-processor'
+    archiveClassifier = ''
+    archiveVersion = ''
+    mergeServiceFiles()
 }

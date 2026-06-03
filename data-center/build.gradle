@@ -1,9 +1,10 @@
 // Tier 2 — Data Center: persistencia histórica y motor de análisis (N5)
+apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'application'
+
 dependencies {
     implementation project(':contracts')
 }
-
-apply plugin: 'application'
 
 application {
     mainClass = 'SITM.Main'
@@ -18,4 +19,11 @@ run {
     // Para worker:   .\gradlew :tier-datacenter:data-center:run --args="worker 20001"
     // Para master:   .\gradlew :tier-datacenter:data-center:run --args="master 10.147.19.23:20001 10.147.19.23:20002"
     // Para comparar: .\gradlew :tier-datacenter:data-center:run --args="comparar 10.147.19.23:20001 10.147.19.23:20002"
+}
+
+shadowJar {
+    archiveBaseName = 'sitm-data-center'
+    archiveClassifier = ''
+    archiveVersion = ''
+    mergeServiceFiles()
 }

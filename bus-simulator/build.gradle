@@ -1,11 +1,10 @@
 // Tier 1 — Edge: simulador de la flota de buses
+apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'application'
+
 dependencies {
     implementation project(':contracts')
 }
-
-// El plugin 'application' añade la tarea 'run' con classpath completo automático.
-// Sin este plugin habría que construir el classpath manualmente con -cp.
-apply plugin: 'application'
 
 application {
     mainClass = 'SITM.Main'
@@ -17,4 +16,11 @@ run {
     // Para pruebas locales en Windows: .\gradlew ... -Psitm.data=data
     systemProperty 'sitm.host', project.findProperty('sitm.host') ?: 'localhost'
     systemProperty 'sitm.data', project.findProperty('sitm.data') ?: '/opt/sitm-mio'
+}
+
+shadowJar {
+    archiveBaseName = 'sitm-bus-simulator'
+    archiveClassifier = ''
+    archiveVersion = ''
+    mergeServiceFiles()
 }

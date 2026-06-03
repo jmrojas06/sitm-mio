@@ -21,11 +21,11 @@ public class Main {
 
     // IP del servidor del piloto SITM-MIO (10.147.19.23).
     // Para correr localmente: -Dsitm.host=localhost
-    static final String HOST = System.getProperty("sitm.host", "10.147.19.23");
+    static final String HOST = System.getProperty("sitm.host", "10.147.20.66");
 
     public static void main(String[] args) {
         String dir = System.getProperty("sitm.data", "/opt/sitm-mio");
-        String archivoCsv = args.length > 0 ? args[0] : dir + "/datagrams-MiniPilot.csv";
+        String archivoCsv = args.length > 0 ? args[0] : dir + "/datagrams4Pilot.csv";
 
         try (Communicator communicator = Util.initialize(args)) {
             ObjectPrx base = communicator.stringToProxy(
