@@ -1,3 +1,21 @@
+// Tier 2 — Data Center: persistencia histórica y motor de análisis (N5)
 dependencies {
     implementation project(':contracts')
+}
+
+apply plugin: 'application'
+
+application {
+    mainClass = 'SITM.Main'
+}
+
+run {
+    workingDir = rootProject.projectDir
+    // En el servidor los datos están en /opt/sitm-mio (valor por defecto en el código).
+    // Para pruebas locales en Windows: .\gradlew ... -Psitm.data=data
+    systemProperty 'sitm.host', project.findProperty('sitm.host') ?: 'localhost'
+    systemProperty 'sitm.data', project.findProperty('sitm.data') ?: '/opt/sitm-mio'
+    // Para worker:   .\gradlew :tier-datacenter:data-center:run --args="worker 20001"
+    // Para master:   .\gradlew :tier-datacenter:data-center:run --args="master 10.147.19.23:20001 10.147.19.23:20002"
+    // Para comparar: .\gradlew :tier-datacenter:data-center:run --args="comparar 10.147.19.23:20001 10.147.19.23:20002"
 }

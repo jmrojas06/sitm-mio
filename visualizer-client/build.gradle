@@ -1,6 +1,12 @@
+// Tier 2 — Data Center: Portal Operativo del CCO (N4)
 plugins {
     id 'org.openjfx.javafxplugin' version '0.1.0'
 }
+
+// El plugin 'application' debe aplicarse explícitamente para que
+// el bloque application{} y la tarea 'run' estén disponibles.
+// El plugin JavaFX 0.1.0 no lo aplica automáticamente en Gradle 8.
+apply plugin: 'application'
 
 javafx {
     version = "17.0.2"
@@ -9,6 +15,15 @@ javafx {
 
 dependencies {
     implementation project(':contracts')
+}
+
+application {
+    mainClass = 'SITM.Main'
+}
+
+run {
+    workingDir = rootProject.projectDir
+    systemProperty 'sitm.host', project.findProperty('sitm.host') ?: 'localhost'
 }
 
 jar {

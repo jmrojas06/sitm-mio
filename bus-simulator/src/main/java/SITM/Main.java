@@ -1,62 +1,46 @@
 package SITM;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
+import SITM.edge.BusSimulador;
 
 import com.zeroc.Ice.Communicator;
 import com.zeroc.Ice.ObjectPrx;
 import com.zeroc.Ice.Util;
 
+/**
+ * Punto de entrada del Tier 1 — Edge, nodo N1: Computador Embebido del Bus.
+ *
+ * En el piloto este proceso simula la transmisión de toda la flota leyendo
+ * un archivo CSV de datagramas históricos. En producción, cada bus correría
+ * su propia instancia conectada a sus sensores físicos reales.
+ *
+ * La lógica de lectura y envío está encapsulada en SITM.edge.BusSimulador,
+ * que representa los componentes C1.1 a C1.4 del diagrama de deployment.
+ * Este Main.java solo configura la conexión Ice y delega la simulación.
+ */
 public class Main {
+
+    // IP del servidor del piloto SITM-MIO (10.147.19.23).
+    // Para correr localmente: -Dsitm.host=localhost
+    static final String HOST = System.getProperty("sitm.host", "10.147.19.23");
+
     public static void main(String[] args) {
-        String csvFile = "data/chunck.csv"; // Archivo por defecto
-        if (args.length > 0) {
-            csvFile = args[0];
-        }
+        String dir = System.getProperty("sitm.data", "/opt/sitm-mio");
+        String archivoCsv = args.length > 0 ? args[0] : dir + "/datagrams-MiniPilot.csv";
 
         try (Communicator communicator = Util.initialize(args)) {
-            ObjectPrx base = communicator.stringToProxy("DatagramReceiver:default -h 192.168.131.42 -p 10000");
-            DatagramReceiverPrx receiver = DatagramReceiverPrx.checkedCast(base);
+            ObjectPrx base = communicator.stringToProxy(
+                    "DatagramReceiver:default -h " + HOST + " -p 10000");
+            DatagramReceiverPrx receptor = DatagramReceiverPrx.checkedCast(base);
 
-            if (receiver == null) {
-                throw new Error("Invalid proxy");
+            if (receptor == null) {
+                System.err.println("No se pudo conectar con el Event Processor. Verifique IP y puerto.");
+                return;
             }
 
-            System.out.println("Iniciando simulación desde: " + csvFile);
-            
-            try (BufferedReader br = new BufferedReader(new FileReader(csvFile))) {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    String[] data = line.split(",");
-                    if (data.length < 12) continue;
-
-                    Datagram d = new Datagram();
-                    try {
-                        d.eventType = Integer.parseInt(data[0]);
-                        d.registerDate = data[1];
-                        d.stopId = Integer.parseInt(data[2]);
-                        d.odometer = Integer.parseInt(data[3]);
-                        d.latitude = Integer.parseInt(data[4]);
-                        d.longitude = Integer.parseInt(data[5]);
-                        d.taskId = Integer.parseInt(data[6]);
-                        d.lineId = Integer.parseInt(data[7]);
-                        d.tripId = Integer.parseInt(data[8]);
-                        d.unknown1 = (int)Double.parseDouble(data[9]); // Algunos campos pueden tener notación científica
-                        d.datagramDate = data[10];
-                        d.busId = Integer.parseInt(data[11]);
-
-                        receiver.postDatagram(d);
-                        System.out.println("Enviado datagrama del bus: " + d.busId);
-                        
-                        // Simular retraso de transmisión
-                        Thread.sleep(500); 
-                    } catch (java.lang.Exception e) {
-                        System.err.println("Error procesando línea: " + line + " - " + e.getMessage());
-                    }
-                }
-            } catch (java.lang.Exception e) {
-                System.err.println("Error leyendo CSV: " + e.getMessage());
-            }
+            // BusSimulador encapsula toda la lógica del Tier Edge:
+            // lectura del CSV, parseo de datagramas y transmisión al Data Center.
+            BusSimulador simulador = new BusSimulador(receptor, archivoCsv);
+            simulador.iniciarSimulacion();
         }
     }
 }

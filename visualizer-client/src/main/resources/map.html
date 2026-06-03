@@ -1,33 +1,349 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SITM-MIO Monitoring</title>
+    <meta charset="UTF-8">
+    <title>SITM-MIO — Portal de Monitoreo CCO</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Nunito para cuerpo, Pacifico para el wordmark tipo MIO -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Pacifico&display=swap" rel="stylesheet">
     <style>
-        #map { height: 100vh; width: 100%; margin: 0; padding: 0; }
-        body { margin: 0; padding: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Nunito', Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            background: #0038A8;
+        }
+
+        #mapa { flex: 1; height: 100vh; }
+
+        /* ───── Panel lateral ───── */
+        #panel {
+            width: 290px;
+            height: 100vh;
+            background: #0038A8;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Cabecera con los tres puntos del logo */
+        #panel-header {
+            padding: 16px 18px 14px;
+            background: #002D8A;
+            border-bottom: 1px solid rgba(255,255,255,0.12);
+        }
+
+        .mio-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        /* Los tres puntos del logo MIO */
+        .mio-dots {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .dot-celeste { width: 10px; height: 10px; border-radius: 50%; background: #29ABE2; }
+        .dot-verde   { width: 10px; height: 10px; border-radius: 50%; background: #00A651; }
+        .dot-rojo    { width: 10px; height: 10px; border-radius: 50%; background: #ED1C24; }
+
+        /* Wordmark estilo MIO */
+        .mio-wordmark {
+            font-family: 'Pacifico', cursive;
+            font-size: 22px;
+            color: #ffffff;
+            letter-spacing: -0.5px;
+            line-height: 1;
+        }
+
+        .mio-subtitle {
+            font-size: 11px;
+            font-weight: 700;
+            color: rgba(255,255,255,0.6);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cco-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-top: 4px;
+        }
+
+        /* Indicadores */
+        #indicadores {
+            display: flex;
+            gap: 8px;
+            padding: 12px 14px;
+            background: #002D8A;
+            border-bottom: 1px solid rgba(255,255,255,0.12);
+        }
+
+        .indicador {
+            flex: 1;
+            text-align: center;
+            padding: 10px 4px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .indicador .valor    { font-size: 22px; font-weight: 800; }
+        .indicador .etiqueta { font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.65); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.3px; }
+
+        .indicador.normal   .valor { color: #29ABE2; }
+        .indicador.alertado .valor { color: #FFB347; }
+        .indicador.critico  .valor { color: #ED1C24; }
+
+        /* Lista de velocidades */
+        #lista-velocidades { flex: 1; overflow-y: auto; padding: 10px 10px 4px; }
+
+        #lista-velocidades::-webkit-scrollbar { width: 4px; }
+        #lista-velocidades::-webkit-scrollbar-track { background: transparent; }
+        #lista-velocidades::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+
+        .seccion-titulo {
+            font-size: 10px;
+            font-weight: 800;
+            color: rgba(255,255,255,0.5);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 6px 8px 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .seccion-titulo::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(255,255,255,0.12);
+        }
+
+        .fila-ruta {
+            display: flex;
+            align-items: center;
+            padding: 7px 10px;
+            border-radius: 7px;
+            margin-bottom: 2px;
+            cursor: pointer;
+            transition: background 0.15s;
+            border: 1px solid transparent;
+        }
+
+        .fila-ruta:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.15);
+        }
+
+        .nombre-ruta {
+            font-size: 13px;
+            font-weight: 700;
+            color: #29ABE2;
+            width: 56px;
+            flex-shrink: 0;
+        }
+
+        .velocidad-ruta {
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.9);
+            margin-left: auto;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Leyenda */
+        #leyenda {
+            padding: 10px 14px 12px;
+            background: #002D8A;
+            border-top: 1px solid rgba(255,255,255,0.12);
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .leyenda-fila {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            margin-bottom: 5px;
+            color: rgba(255,255,255,0.75);
+        }
+
+        .leyenda-fila:last-child { margin-bottom: 0; }
+
+        .bullet {
+            width: 11px;
+            height: 11px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        /* Ícono del busecito */
+        .bus-icon-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            font-size: 14px;
+            border: 2px solid rgba(255,255,255,0.35);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+        }
     </style>
 </head>
 <body>
-    <div id="map"></div>
+
+    <div id="mapa"></div>
+
+    <div id="panel">
+
+        <div id="panel-header">
+            <div class="mio-brand">
+                <span class="mio-wordmark">mio</span>
+                <div class="mio-dots">
+                    <div class="dot-celeste"></div>
+                    <div class="dot-verde"></div>
+                    <div class="dot-rojo"></div>
+                </div>
+            </div>
+            <div class="mio-subtitle">Sistema Integrado de Transporte Masivo</div>
+            <div class="cco-title">Centro de Control de Operación</div>
+        </div>
+
+        <div id="indicadores">
+            <div class="indicador normal">
+                <div class="valor" id="cnt-buses">0</div>
+                <div class="etiqueta">Buses activos</div>
+            </div>
+            <div class="indicador alertado">
+                <div class="valor" id="cnt-alertado">0</div>
+                <div class="etiqueta">Alertados</div>
+            </div>
+            <div class="indicador critico">
+                <div class="valor" id="cnt-critico">0</div>
+                <div class="etiqueta">Críticos</div>
+            </div>
+        </div>
+
+        <div id="lista-velocidades">
+            <div class="seccion-titulo">Velocidad promedio por ruta</div>
+            <div id="filas-rutas"></div>
+        </div>
+
+        <div id="leyenda">
+            <div class="leyenda-fila">
+                <div class="bullet" style="background:#29ABE2"></div>
+                Normal — actualización GPS
+            </div>
+            <div class="leyenda-fila">
+                <div class="bullet" style="background:#FFB347"></div>
+                Alertado — anomalía operacional
+            </div>
+            <div class="leyenda-fila">
+                <div class="bullet" style="background:#ED1C24"></div>
+                Crítico — emergencia inmediata
+            </div>
+        </div>
+    </div>
+
     <script>
-        var map = L.map('map').setView([3.42, -76.52], 12); // Cali
+        var mapa = L.map('mapa').setView([3.42, -76.52], 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+        }).addTo(mapa);
 
-        var markers = {};
+        var marcadores     = {};
+        var velocidadRutas = {};
+        var contadores     = { NORMAL: 0, ALERTADO: 0, CRITICO: 0 };
+        var estadoBuses    = {};
 
-        function updateBus(busId, lat, lng, lineId, time) {
-            if (markers[busId]) {
-                markers[busId].setLatLng([lat, lng]);
-                markers[busId].setPopupContent("<b>Bus:</b> " + busId + "<br><b>Ruta:</b> " + lineId + "<br><b>Hora:</b> " + time);
+        // Colores alineados con la identidad visual del MIO
+        var COLORES = {
+            NORMAL   : '#29ABE2',   // celeste MIO
+            ALERTADO : '#FFB347',   // naranja alerta
+            CRITICO  : '#ED1C24'    // rojo MIO
+        };
+
+        function crearIconoBus(color) {
+            return L.divIcon({
+                html: '<div class="bus-icon-wrap" style="background:' + color + '">🚌</div>',
+                className: '',
+                iconSize:    [26, 26],
+                iconAnchor:  [13, 13],
+                popupAnchor: [0, -16]
+            });
+        }
+
+        function registrarVelocidadRuta(lineId, velocidadKmh, mes, anio) {
+            velocidadRutas[lineId] = { velocidad: velocidadKmh, mes: mes, anio: anio };
+            actualizarPanelVelocidades();
+        }
+
+        function updateBus(busId, lat, lng, lineId, tiempo, severidad) {
+            if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
+
+            var color = COLORES[severidad] || '#888';
+            var icono = crearIconoBus(color);
+
+            var velInfo = velocidadRutas[lineId]
+                ? velocidadRutas[lineId].velocidad.toFixed(1) + ' km/h (prom. mensual)'
+                : 'Cargando...';
+
+            var popup =
+                '<b>Bus:</b> '        + busId  + '<br>' +
+                '<b>Ruta:</b> '       + lineId + '<br>' +
+                '<b>Estado:</b> <span style="color:' + color + ';font-weight:bold">' + severidad + '</span><br>' +
+                '<b>Vel. prom.:</b> ' + velInfo + '<br>' +
+                '<b>Hora:</b> '       + tiempo;
+
+            if (marcadores[busId]) {
+                marcadores[busId].setLatLng([lat, lng]);
+                marcadores[busId].setIcon(icono);
+                marcadores[busId].setPopupContent(popup);
             } else {
-                var marker = L.marker([lat, lng]).addTo(map);
-                marker.bindPopup("<b>Bus:</b> " + busId + "<br><b>Ruta:</b> " + lineId + "<br><b>Hora:</b> " + time);
-                markers[busId] = marker;
+                var m = L.marker([lat, lng], { icon: icono }).addTo(mapa);
+                m.bindPopup(popup);
+                marcadores[busId] = m;
             }
+
+            var anterior = estadoBuses[busId];
+            if (anterior && anterior !== severidad) {
+                contadores[anterior] = Math.max(0, contadores[anterior] - 1);
+            }
+            if (!anterior || anterior !== severidad) {
+                contadores[severidad] = (contadores[severidad] || 0) + 1;
+                estadoBuses[busId] = severidad;
+            }
+
+            document.getElementById('cnt-buses').innerText    = Object.keys(marcadores).length;
+            document.getElementById('cnt-alertado').innerText = contadores['ALERTADO'] || 0;
+            document.getElementById('cnt-critico').innerText  = contadores['CRITICO']  || 0;
+        }
+
+        function actualizarPanelVelocidades() {
+            var contenedor = document.getElementById('filas-rutas');
+            contenedor.innerHTML = '';
+            var lineIds = Object.keys(velocidadRutas).map(Number).sort(function(a, b) { return a - b; });
+            lineIds.forEach(function(lineId) {
+                var datos = velocidadRutas[lineId];
+                var fila  = document.createElement('div');
+                fila.className = 'fila-ruta';
+                fila.innerHTML =
+                    '<span class="nombre-ruta">R-' + lineId + '</span>' +
+                    '<span class="velocidad-ruta">' + datos.velocidad.toFixed(1) + ' km/h</span>';
+                contenedor.appendChild(fila);
+            });
         }
     </script>
 </body>

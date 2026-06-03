@@ -1,6 +1,31 @@
 rootProject.name = 'sitm-mio'
+
+// Los contratos Ice son compartidos por todos los módulos.
+// Contienen las interfaces del sistema definidas en sitm.ice y se compilan
+// primero para generar el código Java que los demás módulos importan.
 include 'contracts'
-include 'bus-simulator'
-include 'event-processor'
-include 'data-center'
-include 'visualizer-client'
+
+// Tier 1 — Edge: los buses de la flota
+// En producción serían los computadores embebidos de cada bus.
+// En el piloto, este módulo simula la transmisión leyendo los CSV de datagramas.
+include 'tier-edge:bus-simulator'
+project(':tier-edge:bus-simulator').projectDir = new File('bus-simulator')
+
+// Tier 2 — Data Center: procesamiento, almacenamiento y portal CCO
+// Es el núcleo del sistema. Recibe los eventos, los clasifica, los distribuye
+// en tiempo real y los persiste para el análisis histórico de velocidades.
+include 'tier-datacenter:event-processor'
+project(':tier-datacenter:event-processor').projectDir = new File('event-processor')
+
+include 'tier-datacenter:data-center'
+project(':tier-datacenter:data-center').projectDir = new File('data-center')
+
+include 'tier-datacenter:visualizer-client'
+project(':tier-datacenter:visualizer-client').projectDir = new File('visualizer-client')
+
+// Tier 3 — External Access: API pública para ciudadanos
+// Este tier expone servicios al ciudadano sin requerir credenciales internas del CCO.
+// Incluye el Circuit Breaker (C6.2) y Cache Redis (C6.3) del diagrama de deployment.
+// Se habilitará en la siguiente fase del proyecto.
+// include 'tier-access:citizen-api'
+// project(':tier-access:citizen-api').projectDir = new File('citizen-api')

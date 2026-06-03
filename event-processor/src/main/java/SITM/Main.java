@@ -1,34 +1,55 @@
 package SITM;
 
+import SITM.datacenter.broker.DatagramReceiverI;
+
 import com.zeroc.Ice.Communicator;
 import com.zeroc.Ice.ObjectAdapter;
 import com.zeroc.Ice.ObjectPrx;
 import com.zeroc.Ice.Util;
 
+/**
+ * Punto de entrada del Tier 2 — Data Center, nodo N3: Procesador de Tiempo Real.
+ *
+ * Este proceso levanta el servidor Ice que recibe datagramas de los buses (N1)
+ * y distribuye actualizaciones de posición al Portal CCO (N4). Orquesta los
+ * componentes internos del Tier 2 sin contener lógica de negocio propia:
+ *
+ *   La lógica de procesamiento está en SITM.datacenter.broker.DatagramReceiverI
+ *   La clasificación de eventos está en SITM.datacenter.classifier.EventClassifier
+ *
+ * Este Main.java actúa como la capa de configuración e infraestructura del nodo,
+ * siguiendo el principio de separación de responsabilidades del patrón Layered.
+ */
 public class Main {
+
+    // IP del servidor del piloto SITM-MIO (10.147.19.23).
+    // Para correr localmente: -Dsitm.host=localhost
+    static final String HOST = System.getProperty("sitm.host", "10.147.19.23");
+
     public static void main(String[] args) {
         try (Communicator communicator = Util.initialize(args)) {
-            // 1. Obtener proxy del Data Center (opcional para el piloto si no está arriba)
+
+            // Intentar conectar con el Data Center (N5). Si no está disponible,
+            // el procesador opera en modo solo tiempo real sin archivar datagramas.
             ArchiveServicePrx archiveService = null;
             try {
-                ObjectPrx base = communicator.stringToProxy("ArchiveService:default -p -h 192.168.131.42 10001");
+                ObjectPrx base = communicator.stringToProxy(
+                        "ArchiveService:default -h " + HOST + " -p 10001");
                 archiveService = ArchiveServicePrx.checkedCast(base);
-            } catch (java.lang.Exception e) {
-                System.out.println("Data Center no detectado, operando en modo solo tiempo real.");
+            } catch (Exception e) {
+                System.out.println("Data Center no disponible — operando en modo solo tiempo real.");
             }
 
-            // 2. Crear Servant
+            // DatagramReceiverI es el componente central del Tier 2.
+            // Agrupa C3.1 (parser), C3.2 (clasificador), C3.3 (publicador) y C3.4 (archivador).
             DatagramReceiverI servant = new DatagramReceiverI(archiveService);
 
-            // 3. Configurar Adaptador
-            ObjectAdapter adapter = communicator.createObjectAdapterWithEndpoints("DatagramReceiverAdapter", "default -h 192.168.131.42 -p 10000");
+            ObjectAdapter adapter = communicator.createObjectAdapterWithEndpoints(
+                    "DatagramReceiverAdapter", "default -h " + HOST + " -p 10000");
             adapter.add(servant, Util.stringToIdentity("DatagramReceiver"));
-            
-            // 4. Permitir que los visualizadores se registren (Simplificación para el piloto)
-            // En una arquitectura real, habría un servicio de registro separado.
-            
             adapter.activate();
-            System.out.println("Event Processor iniciado en el puerto 10000...");
+
+            System.out.println("Event Processor (N3) iniciado en puerto 10000. Esperando datagramas...");
             communicator.waitForShutdown();
         }
     }

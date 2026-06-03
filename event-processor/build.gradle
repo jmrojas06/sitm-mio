@@ -1,3 +1,15 @@
+// Tier 2 — Data Center: procesador de tiempo real (N2 + N3)
 dependencies {
     implementation project(':contracts')
+}
+
+apply plugin: 'application'
+
+application {
+    mainClass = 'SITM.Main'
+}
+
+run {
+    workingDir = rootProject.projectDir
+    systemProperty 'sitm.host', project.findProperty('sitm.host') ?: 'localhost'
 }
