@@ -35,9 +35,9 @@ import javafx.stage.Stage;
 public class Main extends Application {
 
     // IP del Event Processor (N3). Para correr localmente: -Dsitm.host=localhost
-    static final String HOST    = System.getProperty("sitm.host",    "10.147.20.66");
+    static final String HOST    = System.getProperty("sitm.host",    "10.147.20.72");
     // IP del Data Center (N5). Para correr localmente: -Dsitm.dc.host=localhost
-    static final String DC_HOST = System.getProperty("sitm.dc.host", "10.147.20.63");
+    static final String DC_HOST = System.getProperty("sitm.dc.host", "10.147.20.67");
 
     private Communicator communicator;
     private WebEngine webEngine;
@@ -103,7 +103,9 @@ public class Main extends Application {
             return;
         }
 
-        int maxIntentos = 5;
+        // 30 intentos × 5s = 2.5 min de espera — suficiente para que el data-center
+        // termine de calcular velocidades sobre el archivo grande del piloto real.
+        int maxIntentos = 30;
         for (int intento = 1; intento <= maxIntentos; intento++) {
             try {
                 System.out.printf("Portal CCO: conectando con ReportProvider (intento %d/%d)...%n",
@@ -136,7 +138,7 @@ public class Main extends Application {
 
             } catch (Exception e) {
                 System.out.printf("Intento %d fallido: %s%n", intento, e.getMessage());
-                try { Thread.sleep(3000); } catch (InterruptedException ignored) {}
+                try { Thread.sleep(5000); } catch (InterruptedException ignored) {}
             }
         }
         System.out.println("ReportProvider no disponible — el mapa operará sin velocidades históricas.");

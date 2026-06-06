@@ -50,10 +50,10 @@ import java.util.Set;
 public class Main {
 
     // IP del servidor del piloto. Para correr localmente: -Dsitm.host=localhost
-    static final String HOST               = System.getProperty("sitm.host", "10.147.20.66");
+    static final String HOST               = System.getProperty("sitm.host", "10.147.20.72");
     // Directorio de datos. Para correr localmente: -Dsitm.data=data
-    static final String DIR_DATOS          = System.getProperty("sitm.data", "/opt/sitm-mio");
-    static final String ARCHIVO_DATAGRAMAS = DIR_DATOS + "/datagrams4Pilot.csv";
+    static final String DIR_DATOS          = System.getProperty("sitm.data", "/opt/swarch/sitm-mio");
+    static final String ARCHIVO_DATAGRAMAS = DIR_DATOS + "/" + System.getProperty("sitm.datagram", "datagrams4pilot.csv");
     static final String ARCHIVO_RUTAS      = DIR_DATOS + "/lines-241-ActiveGT.csv";
 
     public static void main(String[] args) throws Exception {

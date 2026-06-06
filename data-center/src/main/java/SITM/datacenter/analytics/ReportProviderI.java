@@ -4,10 +4,14 @@ import SITM.ReportProvider;
 import SITM.SpeedReport;
 import SITM.datacenter.analytics.modelo.ResultadoVelocidad;
 import SITM.datacenter.analytics.v1.CalculadorVelocidadV1;
+import SITM.datacenter.analytics.v3.SpeedMaster;
 
+import com.zeroc.Ice.Communicator;
 import com.zeroc.Ice.Current;
+import com.zeroc.Ice.Util;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,30 +21,23 @@ import java.util.Set;
  * Componente C5.2 del diagrama de deployment: Motor de Cálculo de Velocidad.
  * Pertenece al Tier 2 — Data Center, nodo N5, capa de analítica histórica.
  *
- * Esta clase calcula las velocidades promedio por ruta y mes al arrancar el
- * Data Center, usando la Versión 1 (monolítica) del calculador sobre el archivo
- * de datagramas del piloto. Los resultados se cachean en memoria para responder
- * las consultas del Portal CCO (N4) de forma instantánea.
+ * Estrategia de cálculo adaptativa según disponibilidad de Workers:
  *
- * La interfaz Ice ReportProvider es el contrato que conecta este componente
- * con el visualizador: getMonthlyReports() retorna todos los reportes de un año
- * y getAverageSpeed() permite consultar una ruta específica.
+ *   Con workers (sitm.workers configurado): usa SpeedMaster (V3) para distribuir
+ *   el cálculo entre los Workers disponibles. Cada Worker procesa un subconjunto
+ *   de rutas en paralelo, reduciendo el tiempo total proporcionalmente.
  *
- * En producción, el cálculo se haría sobre los datagramas archivados por C5.1,
- * no sobre el CSV estático del piloto, y se recalcularía periódicamente.
+ *   Sin workers: usa CalculadorVelocidadV1 (streaming, O(B) memoria). Correcto
+ *   para cualquier volumen sin riesgo de OutOfMemoryError.
+ *
+ * Los resultados se cachean en memoria para que las consultas del Portal CCO
+ * sean instantáneas sin recalcular sobre el CSV.
  */
 public class ReportProviderI implements ReportProvider {
 
-    // Caché de reportes calculados al inicio. Clave: "lineId_año-mes"
     private final Map<String, SpeedReport> reportesCacheados = new HashMap<>();
 
     /**
-     * Calcula todos los reportes de velocidad al instanciar el componente.
-     *
-     * Se usa V1 (monolítica) porque el cálculo ocurre una sola vez al arrancar.
-     * El resultado se guarda en el caché para que las consultas posteriores
-     * del Portal CCO sean instantáneas sin recalcular sobre el CSV.
-     *
      * @param archivoDatagramas ruta al CSV de datagramas históricos
      * @param rutasActivas      conjunto de lineIds del piloto
      * @param nombreRutas       mapa lineId → shortName para el reporte
@@ -51,9 +48,22 @@ public class ReportProviderI implements ReportProvider {
 
         System.out.println("C5.2 — Iniciando cálculo de velocidades promedio por ruta...");
 
-        CalculadorVelocidadV1 calculador = new CalculadorVelocidadV1();
-        List<ResultadoVelocidad> resultados = calculador.calcular(
-                archivoDatagramas, rutasActivas, nombreRutas);
+        List<ResultadoVelocidad> resultados;
+        String workersConfig = System.getProperty("sitm.workers", "").trim();
+
+        if (!workersConfig.isEmpty()) {
+            // V3 distribuida: el Master divide las rutas entre los Workers.
+            // Cada Worker lee el CSV localmente y calcula su partición en paralelo.
+            // Requiere que los Workers estén activos antes de arrancar el Data Center.
+            List<String> endpoints = Arrays.asList(workersConfig.split(","));
+            System.out.printf("C5.2 — Usando V3 con %d workers: %s%n", endpoints.size(), endpoints);
+            resultados = calcularConWorkers(endpoints, archivoDatagramas, rutasActivas, nombreRutas);
+        } else {
+            // V1 streaming: lee línea a línea sin cargar todo en memoria.
+            // O(B) donde B = buses activos (~900). Seguro para cualquier volumen.
+            System.out.println("C5.2 — Usando V1 (streaming). Configura sitm.workers para usar V3.");
+            resultados = calcularConV1(archivoDatagramas, rutasActivas, nombreRutas);
+        }
 
         for (ResultadoVelocidad r : resultados) {
             String[] partesMes = r.mes.split("-");
@@ -73,18 +83,36 @@ public class ReportProviderI implements ReportProvider {
                 reportesCacheados.size());
     }
 
-    /**
-     * Retorna el reporte de velocidad promedio de una ruta en un mes específico.
-     * Es consultado por el Portal CCO cuando el controlador quiere ver
-     * el desempeño histórico de una ruta en particular.
-     */
+    private List<ResultadoVelocidad> calcularConWorkers(List<String> endpoints,
+                                                         String archivoDatagramas,
+                                                         Set<Integer> rutasActivas,
+                                                         Map<Integer, String> nombreRutas) {
+        try (Communicator communicator = Util.initialize()) {
+            SpeedMaster master = new SpeedMaster(endpoints, archivoDatagramas);
+            return master.calcular(rutasActivas, nombreRutas, communicator);
+        } catch (Throwable e) {
+            System.err.println("C5.2 — V3 falló (" + e.getMessage() + "), cayendo a V1...");
+            return calcularConV1(archivoDatagramas, rutasActivas, nombreRutas);
+        }
+    }
+
+    private List<ResultadoVelocidad> calcularConV1(String archivoDatagramas,
+                                                    Set<Integer> rutasActivas,
+                                                    Map<Integer, String> nombreRutas) {
+        try {
+            return new CalculadorVelocidadV1().calcular(archivoDatagramas, rutasActivas, nombreRutas);
+        } catch (Throwable e) {
+            System.err.println("C5.2 — Error en V1: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
     @Override
     public SpeedReport getAverageSpeed(int lineId, int month, int year, Current current) {
         String mes   = String.format("%d-%02d", year, month);
         String clave = lineId + "_" + mes;
         SpeedReport reporte = reportesCacheados.get(clave);
         if (reporte == null) {
-            // Retornar reporte vacío si no hay datos para esa combinación
             reporte = new SpeedReport();
             reporte.lineId       = lineId;
             reporte.month        = month;
@@ -94,11 +122,6 @@ public class ReportProviderI implements ReportProvider {
         return reporte;
     }
 
-    /**
-     * Retorna todos los reportes de velocidad disponibles para un año.
-     * El Portal CCO llama a este método al arrancar para cargar el panel
-     * de estadísticas de velocidad en el mapa de monitoreo.
-     */
     @Override
     public SpeedReport[] getMonthlyReports(int year, Current current) {
         List<SpeedReport> reportesDelAnio = new ArrayList<>();

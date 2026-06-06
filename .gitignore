@@ -4,3 +4,4 @@ build/
 # Datos grandes (exceden el limite de 100MB de GitHub)
 data/datagrams-MiniPilot.csv
 data/*.csv
+*.zip

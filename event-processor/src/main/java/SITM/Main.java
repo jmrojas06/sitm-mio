@@ -23,9 +23,9 @@ import com.zeroc.Ice.Util;
 public class Main {
 
     // IP del Event Processor (este nodo). Para correr localmente: -Dsitm.host=localhost
-    static final String HOST    = System.getProperty("sitm.host",    "10.147.20.66");
+    static final String HOST    = System.getProperty("sitm.host",    "10.147.20.72");
     // IP del Data Center (N5). Para correr localmente: -Dsitm.dc.host=localhost
-    static final String DC_HOST = System.getProperty("sitm.dc.host", "10.147.20.63");
+    static final String DC_HOST = System.getProperty("sitm.dc.host", "10.147.20.67");
 
     public static void main(String[] args) {
         try (Communicator communicator = Util.initialize(args)) {
